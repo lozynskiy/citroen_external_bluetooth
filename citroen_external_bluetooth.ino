@@ -18,6 +18,7 @@ struct BUTTON {
   int byteNum;
   byte byteValue;
   int pin;
+  unsigned long pressedOn;
 };
 
 struct SCROLL {
@@ -26,6 +27,7 @@ struct SCROLL {
   int byteNum;
   int up;
   int down;
+  unsigned long pressedOn;
 };
 
 struct SOURCE {
@@ -72,7 +74,6 @@ BUTTON WHEEL_BUTTON[] = {
   // VOICE_ASSIST
 };
 
-unsigned long btnPressedOn = 0;
 int btnReleaseDelay = 150;
 bool isAllowedSourceSelected = false;
 
@@ -106,9 +107,9 @@ void processKey(){
   }
 
   for (int i = 0; i < buttonsCount; i++){
-    if (rxId == WHEEL_BUTTON[i].id && rxBuf[WHEEL_BUTTON[i].byteNum] == WHEEL_BUTTON[i].byteValue){
+    if (rxId == WHEEL_BUTTON[i].id && rxBuf[WHEEL_BUTTON[i].byteNum] & WHEEL_BUTTON[i].byteValue){
       pressKey(WHEEL_BUTTON[i].pin);
-      return;
+      WHEEL_BUTTON[i].pressedOn = millis();
     }
   }
 
@@ -123,32 +124,36 @@ void processKey(){
       } else {
         pressKey(SCROLL.down);
       }
+      SCROLL.pressedOn = millis();
       SCROLL.position = rxBuf[SCROLL.byteNum];
-
-      return;
     }
   }
 }
 
 void pressKey(int pin){
-  btnPressedOn = millis();
-
-  if (pressedPin != pin){
-    pressedPin = pin;
-    digitalWrite(pin, HIGH);
-
-    // Serial.println("pressed key: " + String(pin));
-  }
+  digitalWrite(pin, HIGH);
+  
+  // Serial.println("pressed key: " + String(pin));
 }
 
 void releaseKey(){
-  // if no press detected for more than period - release key
-  if (millis() - btnPressedOn > btnReleaseDelay && pressedPin != 0){
-    digitalWrite(pressedPin, LOW);
+  for (int i = 0; i < buttonsCount; i++){
+    if (millis() - WHEEL_BUTTON[i].pressedOn > btnReleaseDelay && WHEEL_BUTTON[i].pressedOn > 0){
+      digitalWrite(WHEEL_BUTTON[i].pin, LOW);
+      WHEEL_BUTTON[i].pressedOn = 0;
 
-    // Serial.println("released key: " + String(pressedPin));
-    pressedPin = 0;
-  }  
+      // Serial.println("released key: " + String(WHEEL_BUTTON[i].pin));
+    }
+  }
+
+  if (millis() - SCROLL.pressedOn > btnReleaseDelay && SCROLL.pressedOn > 0){
+    digitalWrite(SCROLL.up, LOW);
+    digitalWrite(SCROLL.down, LOW);
+    SCROLL.pressedOn = 0;
+
+    // Serial.println("released key: " + String(SCROLL.up));
+    // Serial.println("released key: " + String(SCROLL.down));
+  }
 }
 
 void checkSource(){
@@ -168,8 +173,10 @@ void checkSource(){
 }
 
 void loop(){
-  if(!digitalRead(CAN0_INT)){
-    CAN0.readMsgBuf(&rxId, &len, rxBuf);
+  if(!digitalRead(CAN0_INT) && CAN0.readMsgBuf(&rxId, &len, rxBuf) == CAN_OK){
+
+    // Serial.println("received: " + String(rxId, HEX));
+
     checkSource();
     processKey();
   }
