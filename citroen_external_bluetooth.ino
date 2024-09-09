@@ -1,13 +1,13 @@
 /*
   Sources:
 
-  Tuner:        0x16
-  CD:           0x32
-  CD Changer:   0x48
-  AUX 1:        0x64
-  AUX 2:        0x80
-  USB:          0x96
-  Bluetooth:    0x112
+  Tuner:        0x10
+  CD:           0x20
+  CD Changer:   0x30
+  AUX 1:        0x40
+  AUX 2:        0x50
+  USB:          0x60
+  Bluetooth:    0x70
 */
 
 #include <mcp_can.h>
@@ -176,6 +176,10 @@ void loop(){
   if(!digitalRead(CAN0_INT) && CAN0.readMsgBuf(&rxId, &len, rxBuf) == CAN_OK){
 
     // Serial.println("received: " + String(rxId, HEX));
+
+    if (rxId == 0x165) {
+      Serial.println("received: " + String(rxId, HEX) +": " + String(rxBuf[0], HEX) + ", " + String(rxBuf[1], HEX) + ", " + String(rxBuf[2], HEX) + ", " + String(rxBuf[3], HEX));
+    }
 
     checkSource();
     processKey();
